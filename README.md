@@ -1,3 +1,12 @@
+##
+
+This is a fork on the original OpenCV on branch 4.x
+
+It differs from the original one by adding API to extend the functionality of the GUI.
+
+Last sync with OpenCV: 19/07/2024
+
+
 ## OpenCV: Open Source Computer Vision Library
 
 
