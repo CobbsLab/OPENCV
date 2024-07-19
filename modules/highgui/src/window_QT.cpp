@@ -340,6 +340,69 @@ CV_IMPL void cvDisplayStatusBar(const char* name, const char* text, int delayms)
 }
 
 
+CV_IMPL void cvCenterView(const char* name, float factor, CvPoint coord)
+{
+    if (!guiMainThread)
+        CV_Error( CV_StsNullPtr, "NULL guiReceiver (please create a window)" );
+
+    QMetaObject::invokeMethod(guiMainThread,
+        "centerView",
+        autoBlockingConnection(),
+        Q_ARG(QString, QString(name)),
+        Q_ARG(qreal, factor),
+        Q_ARG(QPoint, QPoint(coord.x, coord.y)));
+}
+
+
+CV_IMPL void cvResetZoom(const char* name)
+{
+    if (!guiMainThread)
+        CV_Error( CV_StsNullPtr, "NULL guiReceiver (please create a window)" );
+
+    QMetaObject::invokeMethod(guiMainThread,
+        "resetZoom",
+        autoBlockingConnection(),
+        Q_ARG(QString, QString(name)));
+}
+
+
+CV_IMPL void cvHideNav(const char* name)
+{
+    if (!guiMainThread)
+        CV_Error( CV_StsNullPtr, "NULL guiReceiver (please create a window)" );
+
+    QMetaObject::invokeMethod(guiMainThread,
+        "hideNav",
+        autoBlockingConnection(),
+        Q_ARG(QString, QString(name)));
+}
+
+
+CV_IMPL void cvShowNav(const char* name)
+{
+    if (!guiMainThread)
+        CV_Error( CV_StsNullPtr, "NULL guiReceiver (please create a window)" );
+
+    QMetaObject::invokeMethod(guiMainThread,
+        "showNav",
+        autoBlockingConnection(),
+        Q_ARG(QString, QString(name)));
+}
+
+
+CV_IMPL void cvSetDefaultCursor(const char* name, int shape)
+{
+    if (!guiMainThread)
+        CV_Error( CV_StsNullPtr, "NULL guiReceiver (please create a window)" );
+
+    QMetaObject::invokeMethod(guiMainThread,
+        "setDefaultCursor",
+        autoBlockingConnection(),
+        Q_ARG(QString, QString(name)),
+        Q_ARG(Qt::CursorShape, Qt::CursorShape(shape)));
+}
+
+
 CV_IMPL int cvWaitKey(int delay)
 {
     int result = -1;
@@ -1071,6 +1134,60 @@ void GuiReceiver::displayStatusBar(QString name, QString text, int delayms)
 
     if (w)
         w->displayStatusBar(text, delayms);
+}
+
+
+void GuiReceiver::displayStatusBar(QString name, QString text, int delayms)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->displayStatusBar(text, delayms);
+}
+
+
+void GuiReceiver::centerView(QString name, qreal factor, QPoint coord)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->centerView(factor, coord);
+}
+     
+
+void GuiReceiver::resetZoom(QString name)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->resetZoom();
+}
+
+
+void GuiReceiver::hideNav(QString name)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->hideNav();
+}
+
+
+void GuiReceiver::showNav(QString name)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->showNav();
+}
+
+
+void GuiReceiver::setDefaultCursor(QString name, Qt::CursorShape shape)
+{
+    QPointer<CvWindow> w = icvFindWindowByName(name);
+
+    if (w)
+        w->setDefaultCursor(shape);
 }
 
 
@@ -2178,6 +2295,36 @@ void CvWindow::showTools()
 }
 
 
+void CvWindow::centerView(qreal factor, QPoint coord)
+{
+  myView->centerView(factor, coord);
+}
+ 
+
+void CvWindow::resetZoom()
+{
+  myView->resetZoom();
+}
+
+
+void CvWindow::hideNav()
+{
+  myView->hideNav();
+}
+
+
+void CvWindow::showNav()
+{
+  myView->showNav();
+}
+
+
+void CvWindow::setDefaultCursor(Qt::CursorShape shape)
+{
+  myView->setDefaultCursor(shape);
+}
+
+
 CvWinProperties* CvWindow::createParameterWindow()
 {
     QString name_paraWindow = QFileInfo(QApplication::applicationFilePath()).fileName() + " settings";
@@ -2547,6 +2694,9 @@ DefaultViewPort::DefaultViewPort(CvWindow* arg, int arg2) : QGraphicsView(arg), 
     // #13657 Tab key disables arrow keys
     // #20215 QT backend: cv::waitKey() and cv::waitKeyEx() do not capture arrow keys once you click on the image or press TAB
     setFocusPolicy(Qt::NoFocus);
+  
+    drawNav = true;
+  
 }
 
 
@@ -2723,6 +2873,17 @@ void DefaultViewPort::resetZoom()
 }
 
 
+void DefaultViewPort::centerView(qreal factor, QPoint coord)
+{
+    resetZoom();
+  
+    float x = (coord.x() * size().width()) / (float)image2Draw_qt.width();
+    float y = (coord.y() * size().height()) / (float)image2Draw_qt.height();
+
+    scaleView(factor, QPointF(x, y));
+}
+
+
 void DefaultViewPort::ZoomIn()
 {
     scaleView(0.5, QPointF(size().width() / 2, size().height() / 2));
@@ -2732,6 +2893,25 @@ void DefaultViewPort::ZoomIn()
 void DefaultViewPort::ZoomOut()
 {
     scaleView(-0.5, QPointF(size().width() / 2, size().height() / 2));
+}
+
+
+void DefaultViewPort::hideNav()
+{
+  drawNav = false;
+}
+
+
+void DefaultViewPort::showNav()
+{
+  drawNav = true;
+}
+
+
+void DefaultViewPort::setDefaultCursor(Qt::CursorShape shape)
+{
+  setCursor(shape);
+  defaultCursorShape = shape;
 }
 
 
@@ -2851,6 +3031,9 @@ void DefaultViewPort::wheelEvent(QWheelEvent* evnt)
     icvmouseEvent((QMouseEvent *)evnt, mouse_wheel);
 
     scaleView(wheelEventDelta(evnt) / 240.0, wheelEventPos(evnt));
+  
+    controlImagePosition();
+
     viewport()->update();
 
     QWidget::wheelEvent(evnt);
@@ -2865,6 +3048,9 @@ void DefaultViewPort::mousePressEvent(QMouseEvent* evnt)
     {
         setCursor(Qt::ClosedHandCursor);
         positionGrabbing = evnt->pos();
+        int x, y;
+        param_matrixWorld.map(positionGrabbing.x(), positionGrabbing.y(),&x,&y);
+        matrixWorld_inv.map(positionGrabbing.x(), positionGrabbing.y(),&x,&y);
     }
 
     QWidget::mousePressEvent(evnt);
@@ -2928,7 +3114,7 @@ void DefaultViewPort::paintEvent(QPaintEvent* evnt)
     }
 
     //in mode zoom/panning
-    if (param_matrixWorld.m11() > 1)
+    if (param_matrixWorld.m11() > 1 && drawNav)
     {
         drawViewOverview(&myPainter);
     }
@@ -3008,7 +3194,7 @@ void DefaultViewPort::moveView(QPointF delta)
 }
 
 //factor is -0.5 (zoom out) or 0.5 (zoom in)
-void DefaultViewPort::scaleView(qreal factor,QPointF center)
+void DefaultViewPort::scaleView(qreal factor, QPointF center)
 {
     factor/=5;//-0.1 <-> 0.1
     factor+=1;//0.9 <-> 1.1
@@ -3039,7 +3225,7 @@ void DefaultViewPort::scaleView(qreal factor,QPointF center)
         centralWidget->displayStatusBar(tr("Zoom: %1%").arg(param_matrixWorld.m11()*100),1000);
 
     if (param_matrixWorld.m11()>1)
-        setCursor(Qt::OpenHandCursor);
+        setCursor(defaultCursorShape);
     else
         unsetCursor();
 }
@@ -3230,21 +3416,21 @@ void DefaultViewPort::drawImgRegion(QPainter *painter)
 void DefaultViewPort::drawViewOverview(QPainter *painter)
 {
     QSize viewSize = size();
-    viewSize.scale ( 100, 100,Qt::KeepAspectRatio );
+    viewSize.scale(100, 100, Qt::KeepAspectRatio);
 
-    const int margin = 5;
+    const int margin = 10;
 
     //draw the image's location
     painter->setBrush(QColor(0, 0, 0, 127));
     painter->setPen(Qt::darkGreen);
-    painter->drawRect(QRect(width()-viewSize.width()-margin, 0,viewSize.width(),viewSize.height()));
+    painter->drawRect(QRect(width()-viewSize.width()-margin, margin,viewSize.width(),viewSize.height()));
 
     //daw the view's location inside the image
     qreal ratioSize = 1/param_matrixWorld.m11();
     qreal ratioWindow = (qreal)(viewSize.height())/(qreal)(size().height());
     painter->setPen(Qt::darkBlue);
     painter->drawRect(QRectF(width()-viewSize.width()-positionCorners.left()*ratioSize*ratioWindow-margin,
-        -positionCorners.top()*ratioSize*ratioWindow,
+        -positionCorners.top()*ratioSize*ratioWindow+margin,
         (viewSize.width()-1)*ratioSize,
         (viewSize.height()-1)*ratioSize)
         );
@@ -3394,7 +3580,6 @@ void OpenGlViewPort::mouseMoveEvent(QMouseEvent* evnt)
     OpenCVQtWidgetBase::mouseMoveEvent(evnt);
 }
 
-
 QSize OpenGlViewPort::sizeHint() const
 {
     if (size.width() > 0 && size.height() > 0)
@@ -3406,6 +3591,31 @@ void OpenGlViewPort::setSize(QSize size_)
 {
     size = size_;
     updateGeometry();
+}
+
+void OpenGlViewPort::centerView(qreal factor, QPoint coord) override
+{
+    CV_Error("OpenGL Window doesn't support centerView()");
+}
+
+void OpenGlViewPort::resetZoom() override
+{
+    CV_Error("OpenGL Window doesn't support resetZoom()");
+}
+
+void OpenGlViewPort::hideNav() override
+{
+    CV_Error("OpenGL Window doesn't support hideNav()");
+}
+
+void OpenGlViewPort::showNav() override
+{
+    CV_Error("OpenGL Window doesn't support showNav()");
+}
+
+void OpenGlViewPort::setDefaultCursor((Qt::CursorShape shape) override
+{
+    CV_Error("OpenGL Window doesn't support setDefaultCursor()");
 }
 
 #endif //HAVE_QT_OPENGL
