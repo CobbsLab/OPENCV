@@ -1137,15 +1137,6 @@ void GuiReceiver::displayStatusBar(QString name, QString text, int delayms)
 }
 
 
-void GuiReceiver::displayStatusBar(QString name, QString text, int delayms)
-{
-    QPointer<CvWindow> w = icvFindWindowByName(name);
-
-    if (w)
-        w->displayStatusBar(text, delayms);
-}
-
-
 void GuiReceiver::centerView(QString name, qreal factor, QPoint coord)
 {
     QPointer<CvWindow> w = icvFindWindowByName(name);
